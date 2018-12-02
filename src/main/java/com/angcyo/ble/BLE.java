@@ -9,11 +9,15 @@ import com.clj.fastble.callback.BleGattCallback;
 import com.clj.fastble.callback.BleIndicateCallback;
 import com.clj.fastble.callback.BleMtuChangedCallback;
 import com.clj.fastble.callback.BleNotifyCallback;
+import com.clj.fastble.callback.BleReadCallback;
 import com.clj.fastble.callback.BleRssiCallback;
 import com.clj.fastble.callback.BleScanCallback;
+import com.clj.fastble.callback.BleWriteCallback;
 import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.clj.fastble.scan.BleScanRuleConfig;
+
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
@@ -82,6 +86,10 @@ public class BLE {
 //        startActivityForResult(intent, 0x01);
     }
 
+    public static void destroy() {
+        BleManager.getInstance().destroy();
+    }
+
     public static void setMtu(BleDevice bleDevice, int mtu) {
         BleManager.getInstance().setMtu(bleDevice, mtu, new BleMtuChangedCallback() {
             @Override
@@ -94,6 +102,10 @@ public class BLE {
                 // 设置MTU成功，并获得当前设备传输支持的MTU值
             }
         });
+    }
+
+    public static BluetoothGatt getBluetoothGatt(BleDevice bleDevice) {
+        return BleManager.getInstance().getBluetoothGatt(bleDevice);
     }
 
     /**
@@ -126,7 +138,7 @@ public class BLE {
     /**
      * 开始扫描
      */
-    public static void scan() {
+    public static void scan(final BleScanCallback callback) {
         /**
          * 扫描得到的BLE外围设备，会以BleDevice对象的形式，作为后续操作的最小单元对象。它本身含有这些信息：
          * String getName()：蓝牙广播名
@@ -139,16 +151,25 @@ public class BLE {
             @Override
             public void onScanStarted(boolean success) {
                 L.i("开始扫描蓝牙:onScanStarted:" + success);
+                if (callback != null) {
+                    callback.onScanStarted(success);
+                }
             }
 
             @Override
             public void onScanning(BleDevice bleDevice) {
                 L.i("扫描:onScanning:" + "name:" + bleDevice.getName() + " mac:" + bleDevice.getMac() + " rssi:" + bleDevice.getRssi());
+                if (callback != null) {
+                    callback.onScanning(bleDevice);
+                }
             }
 
             @Override
             public void onScanFinished(List<BleDevice> scanResultList) {
                 L.i("扫描完成:onScanFinished:" + scanResultList);
+                if (callback != null) {
+                    callback.onScanFinished(scanResultList);
+                }
             }
         });
     }
@@ -156,34 +177,46 @@ public class BLE {
     /**
      * 连接设备
      */
-    public static void connect(final BleDevice bleDevice) {
-        connect(bleDevice);
+    public static void connect(final BleDevice bleDevice, BleGattCallback callback) {
+        connectInner(bleDevice, callback);
     }
 
-    public static void connect(final String bleMac) {
-        connect(bleMac);
+    public static void connect(final String bleMac, BleGattCallback callback) {
+        connectInner(bleMac, callback);
     }
 
-    private static void connect(final Object bleObj) {
+    private static void connectInner(final Object bleObj, final BleGattCallback callback) {
         BleGattCallback bleGattCallback = new BleGattCallback() {
             @Override
             public void onStartConnect() {
                 L.i("开始连接设备:" + bleObj);
+                if (callback != null) {
+                    callback.onStartConnect();
+                }
             }
 
             @Override
             public void onConnectFail(BleDevice bleDevice, BleException exception) {
-                L.e("设备连接失败:" + bleDevice + " ->" + exception);
+                L.e("设备连接失败:" + bleDevice.getName() + " " + bleDevice.getMac() + " ->" + exception);
+                if (callback != null) {
+                    callback.onConnectFail(bleDevice, exception);
+                }
             }
 
             @Override
             public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
                 L.i("设备连接成功:" + gatt + " " + status);
+                if (callback != null) {
+                    callback.onConnectSuccess(bleDevice, gatt, status);
+                }
             }
 
             @Override
             public void onDisConnected(boolean isActiveDisConnected /*主动断开*/, BleDevice bleDevice, BluetoothGatt gatt, int status) {
                 L.i("设备连接断开:" + isActiveDisConnected + " " + gatt + " " + status);
+                if (callback != null) {
+                    callback.onDisConnected(isActiveDisConnected, bleDevice, gatt, status);
+                }
             }
         };
 
@@ -213,9 +246,10 @@ public class BLE {
      * <p>
      * 进行BLE数据相互发送的时候，一次最多能发送20个字节
      */
-    public static void notify(BleDevice bleDevice,
+    public static void notify(@NotNull final BleDevice bleDevice,
                               String uuid_service /*蓝牙设备通信规定的uuid*/,
-                              String uuid_characteristic_notify) {
+                              String uuid_characteristic_notify,
+                              final BleNotifyCallback callback) {
         BleManager.getInstance().notify(
                 bleDevice,
                 uuid_service,
@@ -224,16 +258,25 @@ public class BLE {
                     @Override
                     public void onNotifySuccess() {
                         // 打开通知操作成功
+                        callback.onNotifySuccess();
                     }
 
                     @Override
                     public void onNotifyFailure(BleException exception) {
                         // 打开通知操作失败
+                        L.e(exception.toString());
+                        if (callback != null) {
+                            callback.onNotifyFailure(exception);
+                        }
                     }
 
                     @Override
                     public void onCharacteristicChanged(byte[] data) {
                         // 打开通知后，设备发过来的数据将在这里出现
+                        L.i("notify收到数据:" + bleDevice.getMac() + "->" + HEX.formatHex(HEX.hexString(data), ' '));
+                        if (callback != null) {
+                            callback.onCharacteristicChanged(data);
+                        }
                     }
                 });
 
@@ -264,6 +307,7 @@ public class BLE {
                     @Override
                     public void onIndicateFailure(BleException exception) {
                         // 打开通知操作失败
+                        L.e(exception.toString());
                     }
 
                     @Override
@@ -277,6 +321,62 @@ public class BLE {
                                     String uuid_service,
                                     String uuid_characteristic_indicate) {
         BleManager.getInstance().stopIndicate(bleDevice, uuid_service, uuid_characteristic_indicate);
+    }
+
+    public static void write(final BleDevice bleDevice,
+                             String uuid_service,
+                             String uuid_characteristic_write,
+                             byte[] data,
+                             final BleWriteCallback callback) {
+        BleManager.getInstance().write(
+                bleDevice,
+                uuid_service,
+                uuid_characteristic_write,
+                data,
+                new BleWriteCallback() {
+                    @Override
+                    public void onWriteSuccess(int current, int total, byte[] justWrite) {
+                        L.d("写入数据:" + bleDevice.getMac() + "->" + current + ":" + total + "->" + HEX.formatHex(HEX.hexString(justWrite), ' '));
+                        if (callback != null) {
+                            callback.onWriteSuccess(current, total, justWrite);
+                        }
+                    }
+
+                    @Override
+                    public void onWriteFailure(BleException exception) {
+                        L.e(exception.toString());
+                        if (callback != null) {
+                            callback.onWriteFailure(exception);
+                        }
+                    }
+                });
+    }
+
+    public static void read(BleDevice bleDevice,
+                            String uuid_service,
+                            String uuid_characteristic_read,
+                            final BleReadCallback callback) {
+        BleManager.getInstance().read(
+                bleDevice,
+                uuid_service,
+                uuid_characteristic_read,
+                new BleReadCallback() {
+                    @Override
+                    public void onReadSuccess(byte[] data) {
+                        L.d("读取数据:" + HEX.formatHex(HEX.hexString(data), ' '));
+                        if (callback != null) {
+                            callback.onReadSuccess(data);
+                        }
+                    }
+
+                    @Override
+                    public void onReadFailure(BleException exception) {
+                        L.e(exception.toString());
+                        if (callback != null) {
+                            callback.onReadFailure(exception);
+                        }
+                    }
+                });
     }
 
 }
