@@ -218,7 +218,7 @@ public class HEX {
                                            int size /*需要输出多少个字节, 1个字节等于8位, 等于2位十六进制*/) {
         String hexString = "";
         try {
-            hexString = Integer.toHexString(Integer.parseInt(intString));
+            hexString = Long.toHexString(Long.parseLong(intString));
         } catch (NumberFormatException e) {
             e.printStackTrace();
         }
