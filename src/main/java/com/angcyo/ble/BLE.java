@@ -1,22 +1,16 @@
 package com.angcyo.ble;
 
+import android.app.Activity;
 import android.app.Application;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
-
+import android.content.Intent;
 import com.clj.fastble.BleManager;
-import com.clj.fastble.callback.BleGattCallback;
-import com.clj.fastble.callback.BleIndicateCallback;
-import com.clj.fastble.callback.BleMtuChangedCallback;
-import com.clj.fastble.callback.BleNotifyCallback;
-import com.clj.fastble.callback.BleReadCallback;
-import com.clj.fastble.callback.BleRssiCallback;
-import com.clj.fastble.callback.BleScanCallback;
-import com.clj.fastble.callback.BleWriteCallback;
+import com.clj.fastble.callback.*;
 import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.clj.fastble.scan.BleScanRuleConfig;
-
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -27,6 +21,8 @@ import java.util.List;
  * https://github.com/Jasonchenlijian/FastBle 2.3.2
  */
 public class BLE {
+    public static final int REQUEST_ENBALE_BLE_CODE = 0x8088;
+
     public static void init(Application app, boolean debug) {
         BleManager.getInstance().init(app);
 
@@ -77,13 +73,18 @@ public class BLE {
     }
 
     /**
-     * 激活BLE
+     * 激活BLE, 不弹出权限对话框
      */
     public static void enableBluetooth() {
         BleManager.getInstance().enableBluetooth();
+    }
 
-//        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-//        startActivityForResult(intent, 0x01);
+    /**
+     * 弹出权限对话框
+     */
+    public static void enableBluetooth(Activity activity) {
+        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        activity.startActivityForResult(intent, REQUEST_ENBALE_BLE_CODE);
     }
 
     public static void destroy() {
