@@ -1,8 +1,8 @@
-apply from: '../lib/lib_base.gradle'
+apply from: allGradle.lib_base
 
 dependencies {
     api fileTree(dir: 'libs', include: ['*.jar'])
 
     /*https://github.com/Jasonchenlijian/FastBle*/
-    api 'com.clj.fastble:FastBleLib:2.3.2'
+    api 'com.clj.fastble:FastBleLib:2.3.4'
 }
